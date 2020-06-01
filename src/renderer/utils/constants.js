@@ -21,3 +21,34 @@ export const TAGS = [
   { x: TAGS_TABLE_COORDINATES.COLUMN_ONE, y: TAGS_TABLE_COORDINATES.ROW_TWO },
   { x: TAGS_TABLE_COORDINATES.COLUMN_TWO, y: TAGS_TABLE_COORDINATES.ROW_TWO }
 ]
+
+export const RECRUITMENT_TAGS = [
+  'starter',
+  'senior operator',
+  'top operator',
+  'melee',
+  'ranged',
+  'guard',
+  'medic',
+  'vanguard',
+  'caster',
+  'sniper',
+  'defender',
+  'supporter',
+  'specialist',
+  'healing',
+  'support',
+  'dps',
+  'aoe',
+  'slow',
+  'survival',
+  'defense',
+  'debuff',
+  'shift',
+  'crowd control',
+  'nuker',
+  'summon',
+  'fast-redeploy',
+  'dp-recovery',
+  'robot'
+]

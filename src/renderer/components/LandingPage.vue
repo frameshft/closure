@@ -22,12 +22,14 @@
 <script>
   import { desktopCapturer, remote } from 'electron'
   import Jimp from 'jimp'
+  import path from 'path'
+  import { createWorker } from 'tesseract.js'
 
   import ArkCard from './ArkCard'
   import ArkButton from './ArkButton'
   import ScreenshotVideo from './ScreenshotVideo'
 
-  import { TAGS, TAGS_DIMENSIONS } from '../utils/constants'
+  import { TAGS, TAGS_DIMENSIONS, RECRUITMENT_TAGS } from '../utils/constants'
 
   const { Menu } = remote
 
@@ -94,6 +96,12 @@
           })
 
         console.log(croppedTagImages)
+
+        for (const tag of croppedTagImages) {
+          const detectedTag = await this.detectTagFromImage(tag)
+          this.detectedTags.push(detectedTag)
+        }
+        console.log(this.detectedTags)
       },
       async prepTag(image, imageWidth, imageHeight, cropX, cropY) {
         return await Jimp.read(Buffer.from(image, 'base64'))
@@ -118,6 +126,26 @@
           .catch(err => {
             console.error(err)
           })
+      },
+      async detectTagFromImage(image) {
+        const worker = createWorker({
+          cachePath: path.join(__static, 'lang-data'),
+          logger: m => console.log(m)
+        })
+
+        const base64string = image.split(',')[1]
+
+        await worker.load()
+        console.log('FUCK')
+        await worker.loadLanguage('eng')
+        console.log('ASDASD')
+        await worker.initialize('eng')
+
+        const job = await worker.recognize(Buffer.from(base64string, 'base64'))
+        await worker.terminate()
+        return RECRUITMENT_TAGS.find(tag =>
+          new RegExp('\\b' + tag + '\\b', 'i').test(job.data.text)
+        )
       }
     }
   }

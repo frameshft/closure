@@ -58,6 +58,7 @@
   "dependencies": {
     "axios": "^0.18.0",
     "jimp": "^0.12.1",
+    "tesseract.js": "^2.1.1",
     "vue": "^2.5.16",
     "vue-electron": "^1.0.6",
     "vue-router": "^3.0.1",
