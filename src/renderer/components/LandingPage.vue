@@ -21,11 +21,36 @@
 
 <script>
   import { desktopCapturer, remote } from 'electron'
+  import Jimp from 'jimp'
   import ArkCard from './ArkCard'
   import ArkButton from './ArkButton'
   import ScreenshotVideo from './ScreenshotVideo'
 
   const { Menu } = remote
+
+  const TAGS_TABLE_COORDINATES = {
+    COLUMN_ONE: 0.29427083333,
+    COLUMN_TWO: 0.42395833333,
+    COLUMN_THREE: 0.55416666666,
+    ROW_ONE: 0.509,
+    ROW_TWO: 0.60462962963
+  }
+
+  const TAGS_DIMENSIONS = {
+    WIDTH: 0.12,
+    HEIGHT: 0.07
+  }
+
+  const TAGS = [
+    { x: TAGS_TABLE_COORDINATES.COLUMN_ONE, y: TAGS_TABLE_COORDINATES.ROW_ONE },
+    { x: TAGS_TABLE_COORDINATES.COLUMN_TWO, y: TAGS_TABLE_COORDINATES.ROW_ONE },
+    {
+      x: TAGS_TABLE_COORDINATES.COLUMN_THREE,
+      y: TAGS_TABLE_COORDINATES.ROW_ONE
+    },
+    { x: TAGS_TABLE_COORDINATES.COLUMN_ONE, y: TAGS_TABLE_COORDINATES.ROW_TWO },
+    { x: TAGS_TABLE_COORDINATES.COLUMN_TWO, y: TAGS_TABLE_COORDINATES.ROW_TWO }
+  ]
 
   export default {
     components: {
@@ -36,7 +61,8 @@
     data() {
       return {
         windowSource: {},
-        screenshotActive: false
+        screenshotActive: false,
+        detectedTags: []
       }
     },
     methods: {
@@ -62,9 +88,57 @@
       screenshot() {
         this.screenshotActive = true
       },
-      analyzeScreenshot(screenshot) {
+      async analyzeScreenshot(screenshot) {
         this.screenshotActive = false
         console.log(screenshot)
+        const imageSplit = screenshot.image.split(',')[1]
+
+        const prepTagsImagesPromises = []
+        TAGS.forEach(tag => {
+          prepTagsImagesPromises.push(
+            this.prepTag(
+              imageSplit,
+              screenshot.width,
+              screenshot.height,
+              tag.x,
+              tag.y
+            )
+          )
+        })
+
+        const croppedTagImages = await Promise.all(prepTagsImagesPromises)
+          .then(result => {
+            return result
+          })
+          .catch(e => {
+            console.log(e)
+          })
+
+        console.log(croppedTagImages)
+      },
+      async prepTag(image, imageWidth, imageHeight, cropX, cropY) {
+        return await Jimp.read(Buffer.from(image, 'base64'))
+          .then(readImage => {
+            return (
+              readImage
+                .crop(
+                  cropX * imageWidth,
+                  cropY * imageHeight,
+                  TAGS_DIMENSIONS.WIDTH * imageWidth,
+                  TAGS_DIMENSIONS.HEIGHT * imageHeight
+                )
+                .greyscale()
+                .autocrop()
+                .invert() // set greyscale
+                .contrast(1)
+                .posterize(2)
+                // .write(cropX + cropY + '.jpg')
+                .getBase64Async(Jimp.MIME_JPEG)
+            )
+          })
+          .catch(err => {
+            console.error(err)
+          })
       }
     }
   }
