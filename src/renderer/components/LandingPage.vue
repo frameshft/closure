@@ -10,6 +10,16 @@
       <ark-button :modifiers="['outline']" @click.native="getVideoSources">Select Arknights</ark-button>
       <ark-button :modifiers="['action']" @click.native="screenshot">Analyze</ark-button>
     </ark-card>
+    <div class="p-landing-page__results">
+      <ark-card v-for="ops,index in filteredOperators" :key="index">
+        <template v-slot:title>{{ ops.tags }}</template>
+        <div class="p-landing-page__ops">
+          <div class="p-landing-page__operator" v-for="op in ops.operators" :key="op.name">
+            <ark-avatar :src="`static/operators/${op.name}.png`" :alt="op.name" :level="op.level"></ark-avatar>
+          </div>
+        </div>
+      </ark-card>
+    </div>
   </div>
 </template>
 
@@ -21,30 +31,38 @@ import { createWorker } from 'tesseract.js'
 
 import ArkCard from './ArkCard'
 import ArkButton from './ArkButton'
+import ArkAvatar from './ArkAvatar'
 import ScreenshotVideo from './ScreenshotVideo'
-import operators from '../assets/json/operators.json'
+import operatorsJSON from '../assets/json/operators.json'
 
 import { TAGS, TAGS_DIMENSIONS, RECRUITMENT_TAGS } from '../utils/constants'
 
 const { Menu } = remote
 
-operators.map(operator => {
+operatorsJSON.map(operator => {
   operator.tags.push(operator.type)
   operator.tags = operator.tags.map(tag => tag.toLowerCase())
   return operator
+})
+
+const operators = operatorsJSON.filter(operator => {
+  return !operator.hidden
 })
 
 export default {
   components: {
     ArkCard,
     ArkButton,
-    ScreenshotVideo
+    ScreenshotVideo,
+    ArkAvatar
   },
   data() {
     return {
       windowSource: {},
       screenshotActive: false,
-      detectedTags: []
+      detectedTags: [],
+      filteredOperators: [],
+      analyzing: false
     }
   },
   methods: {
@@ -68,7 +86,15 @@ export default {
       videoOptionsMenu.popup()
     },
     screenshot() {
+      if (Object.keys(this.windowSource).length === 0) {
+        alert('Please select an active Arknights window')
+        return
+      }
+      if (this.analyzing) {
+        return
+      }
       this.screenshotActive = true
+      this.analyzing = true
     },
     async analyzeScreenshot(screenshot) {
       this.screenshotActive = false
@@ -97,14 +123,17 @@ export default {
         })
 
       console.log(croppedTagImages)
-
+      const detectedTagsTemp = []
       for (const tag of croppedTagImages) {
         const detectedTag = await this.detectTagFromImage(tag)
-        this.detectedTags.push(detectedTag)
+        detectedTagsTemp.push(detectedTag)
       }
+      this.detectedTags = detectedTagsTemp
       console.log(this.detectedTags)
 
-      this.filterOperators(this.detectedTags)
+      this.filteredOperators = this.filterOperators(this.detectedTags)
+      console.log(this.filteredOperators)
+      this.analyzing = false
     },
     async prepTag(image, imageWidth, imageHeight, cropX, cropY) {
       return await Jimp.read(Buffer.from(image, 'base64'))
@@ -189,28 +218,42 @@ export default {
         })
         .filter(tags => tags.operators.length > 0)
 
-      const weightedOperatorTags = filteredTagOperators.sort((a, b) => {
-        if (a.minLevel > b.minLevel) return -1
-        if (a.minLevel < b.minLevel) return 1
-        if (a.score > b.score) return -1
-        if (b.score > a.score) return 1
-        if (a.tags.length > b.tags.length) return 1
-        if (a.tags.length < b.tags.length) return -1
-        if (a.operators.length > b.operators.length) return 1
-        if (a.operators.length < b.operators.length) return -1
-      })
+      const weightedOperatorTags = filteredTagOperators
+        .sort((a, b) => {
+          if (a.minLevel > b.minLevel) return -1
+          if (a.minLevel < b.minLevel) return 1
+          if (a.score > b.score) return -1
+          if (b.score > a.score) return 1
+          if (a.tags.length > b.tags.length) return 1
+          if (a.tags.length < b.tags.length) return -1
+          if (a.operators.length > b.operators.length) return 1
+          if (a.operators.length < b.operators.length) return -1
+        })
+        .map(entry => {
+          return {
+            tags: entry.tags
+              .map(tag => {
+                return tag.charAt(0).toUpperCase() + tag.slice(1)
+              })
+              .toString(),
+            operators: entry.operators.reverse(),
+            score: entry.score,
+            minLevel: entry.minLevel
+          }
+        })
 
-      console.log(weightedOperatorTags)
-      // Delete me later
-      const tableFormat = weightedOperatorTags.map(entry => {
-        return {
-          tags: entry.tags.toString(),
-          operators: entry.operators.map(op => op.name).toString(),
-          score: entry.score,
-          minLevel: entry.minLevel
-        }
-      })
-      console.table(tableFormat)
+      // console.log(weightedOperatorTags)
+      // // Delete me later
+      // const tableFormat = weightedOperatorTags.map(entry => {
+      //   return {
+      //     tags: entry.tags.toString(),
+      //     operators: entry.operators.map(op => op.name).toString(),
+      //     score: entry.score,
+      //     minLevel: entry.minLevel
+      //   }
+      // })
+      // console.table(tableFormat)
+      return weightedOperatorTags
     },
     getCombinations(tags) {
       // array to hold results
@@ -254,8 +297,15 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-body {
-  $background: #333;
-  background-color: $background;
+.p-landing-page {
+  &__ops {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -0.5rem;
+  }
+
+  &__operator {
+    margin: 0 0.5rem 1rem 0.5rem;
+  }
 }
 </style>
