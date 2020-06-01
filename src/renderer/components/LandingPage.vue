@@ -1,5 +1,6 @@
 <template>
-  <div>
+  <div class="p-landing-page">
+    <ark-loader v-if="analyzing"></ark-loader>
     <screenshot-video
       v-if="screenshotActive"
       :windowSource="windowSource"
@@ -32,6 +33,7 @@ import { createWorker } from 'tesseract.js'
 import ArkCard from './ArkCard'
 import ArkButton from './ArkButton'
 import ArkAvatar from './ArkAvatar'
+import ArkLoader from './ArkLoader'
 import ScreenshotVideo from './ScreenshotVideo'
 import operatorsJSON from '../assets/json/operators.json'
 
@@ -54,7 +56,8 @@ export default {
     ArkCard,
     ArkButton,
     ScreenshotVideo,
-    ArkAvatar
+    ArkAvatar,
+    ArkLoader
   },
   data() {
     return {

@@ -93,7 +93,7 @@ export default {
     color: #fff;
     font-size: 1.2rem;
     background-color: black;
-    text-align: right;
+    text-align: center;
     padding: 0 0.4rem;
   }
 }
