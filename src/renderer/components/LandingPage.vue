@@ -22,35 +22,14 @@
 <script>
   import { desktopCapturer, remote } from 'electron'
   import Jimp from 'jimp'
+
   import ArkCard from './ArkCard'
   import ArkButton from './ArkButton'
   import ScreenshotVideo from './ScreenshotVideo'
 
+  import { TAGS, TAGS_DIMENSIONS } from '../utils/constants'
+
   const { Menu } = remote
-
-  const TAGS_TABLE_COORDINATES = {
-    COLUMN_ONE: 0.29427083333,
-    COLUMN_TWO: 0.42395833333,
-    COLUMN_THREE: 0.55416666666,
-    ROW_ONE: 0.509,
-    ROW_TWO: 0.60462962963
-  }
-
-  const TAGS_DIMENSIONS = {
-    WIDTH: 0.12,
-    HEIGHT: 0.07
-  }
-
-  const TAGS = [
-    { x: TAGS_TABLE_COORDINATES.COLUMN_ONE, y: TAGS_TABLE_COORDINATES.ROW_ONE },
-    { x: TAGS_TABLE_COORDINATES.COLUMN_TWO, y: TAGS_TABLE_COORDINATES.ROW_ONE },
-    {
-      x: TAGS_TABLE_COORDINATES.COLUMN_THREE,
-      y: TAGS_TABLE_COORDINATES.ROW_ONE
-    },
-    { x: TAGS_TABLE_COORDINATES.COLUMN_ONE, y: TAGS_TABLE_COORDINATES.ROW_TWO },
-    { x: TAGS_TABLE_COORDINATES.COLUMN_TWO, y: TAGS_TABLE_COORDINATES.ROW_TWO }
-  ]
 
   export default {
     components: {
