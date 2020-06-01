@@ -1,0 +1,77 @@
+<template>
+  <div class="ark-card ark-card--outline">
+    <p class="ark-card__title">
+      <slot name="title"></slot>
+    </p>
+    <p class="ark-card__content">
+      <slot></slot>
+    </p>
+  </div>
+</template>
+
+<style lang="scss" scoped>
+  .ark-card {
+    background-color: transparent;
+    transition: 0.2s;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    outline: none;
+    display: inline-block;
+    padding: 0.8rem 1.6rem;
+
+    &--outline {
+      display: block;
+      min-height: 100px;
+      border: 0.8rem solid white;
+      background-color: transparent;
+      box-shadow: 2px 2px 15px rgba(0, 0, 0, 0.2);
+
+      &:hover {
+        box-shadow: 2px 2px 30px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    &__title {
+      font-weight: 900;
+      font-size: 1.8rem;
+      margin: 0.4rem 0;
+      border-bottom: 2px solid white;
+      color: #fff;
+    }
+
+    &--stripe {
+      width: 200px;
+      height: 200px;
+      padding: 0;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 5px,
+        rgba(255, 255, 255, 1) 10px,
+        rgba(255, 255, 255, 1) 15px
+      );
+
+      &:hover {
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    &--place {
+      border: 1px solid transparent;
+      width: 100px;
+      height: 100px;
+      box-shadow: inset 0 0 20px rgba($color: #fff, $alpha: 1);
+      border-bottom: 4px solid var(--ak-card-place-color, white);
+      padding: 0;
+
+      &:active,
+      &:focus {
+        border-top: 1px solid #fff;
+        border-left: 1px solid #fff;
+        border-right: 1px solid #fff;
+        box-shadow: inset 0 0 20px rgba($color: #fff, $alpha: 1),
+          0 5px 10px rgba(0, 0, 0, 0.1);
+        transform: translateY(-10px);
+      }
+    }
+  }
+</style>
