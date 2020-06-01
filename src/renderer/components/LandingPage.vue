@@ -6,154 +6,256 @@
       @screenshotComplete="analyzeScreenshot"
     ></screenshot-video>
     <ark-card>
-      <template v-slot:title>
-        Controls
-      </template>
-      <ark-button :modifiers="['outline']" @click.native="getVideoSources"
-        >Select Arknights
-      </ark-button>
-      <ark-button :modifiers="['action']" @click.native="screenshot"
-        >Analyze</ark-button
-      >
+      <template v-slot:title>Controls</template>
+      <ark-button :modifiers="['outline']" @click.native="getVideoSources">Select Arknights</ark-button>
+      <ark-button :modifiers="['action']" @click.native="screenshot">Analyze</ark-button>
     </ark-card>
   </div>
 </template>
 
 <script>
-  import { desktopCapturer, remote } from 'electron'
-  import Jimp from 'jimp'
-  import path from 'path'
-  import { createWorker } from 'tesseract.js'
+import { desktopCapturer, remote } from 'electron'
+import Jimp from 'jimp'
+import path from 'path'
+import { createWorker } from 'tesseract.js'
 
-  import ArkCard from './ArkCard'
-  import ArkButton from './ArkButton'
-  import ScreenshotVideo from './ScreenshotVideo'
+import ArkCard from './ArkCard'
+import ArkButton from './ArkButton'
+import ScreenshotVideo from './ScreenshotVideo'
+import operators from '../assets/json/operators.json'
 
-  import { TAGS, TAGS_DIMENSIONS, RECRUITMENT_TAGS } from '../utils/constants'
+import { TAGS, TAGS_DIMENSIONS, RECRUITMENT_TAGS } from '../utils/constants'
 
-  const { Menu } = remote
+const { Menu } = remote
 
-  export default {
-    components: {
-      ArkCard,
-      ArkButton,
-      ScreenshotVideo
+operators.map(operator => {
+  operator.tags.push(operator.type)
+  operator.tags = operator.tags.map(tag => tag.toLowerCase())
+  return operator
+})
+
+export default {
+  components: {
+    ArkCard,
+    ArkButton,
+    ScreenshotVideo
+  },
+  data() {
+    return {
+      windowSource: {},
+      screenshotActive: false,
+      detectedTags: []
+    }
+  },
+  methods: {
+    async getVideoSources() {
+      console.log('Fired')
+      const inputSources = await desktopCapturer.getSources({
+        types: ['window', 'screen']
+      })
+
+      console.log(inputSources)
+
+      const videoOptionsMenu = Menu.buildFromTemplate(
+        inputSources.map(source => {
+          return {
+            label: source.name,
+            click: () => (this.windowSource = source)
+          }
+        })
+      )
+
+      videoOptionsMenu.popup()
     },
-    data() {
-      return {
-        windowSource: {},
-        screenshotActive: false,
-        detectedTags: []
-      }
+    screenshot() {
+      this.screenshotActive = true
     },
-    methods: {
-      async getVideoSources() {
-        console.log('Fired')
-        const inputSources = await desktopCapturer.getSources({
-          types: ['window', 'screen']
+    async analyzeScreenshot(screenshot) {
+      this.screenshotActive = false
+      console.log(screenshot)
+      const imageSplit = screenshot.image.split(',')[1]
+
+      const prepTagsImagesPromises = []
+      TAGS.forEach(tag => {
+        prepTagsImagesPromises.push(
+          this.prepTag(
+            imageSplit,
+            screenshot.width,
+            screenshot.height,
+            tag.x,
+            tag.y
+          )
+        )
+      })
+
+      const croppedTagImages = await Promise.all(prepTagsImagesPromises)
+        .then(result => {
+          return result
+        })
+        .catch(e => {
+          console.log(e)
         })
 
-        console.log(inputSources)
+      console.log(croppedTagImages)
 
-        const videoOptionsMenu = Menu.buildFromTemplate(
-          inputSources.map(source => {
-            return {
-              label: source.name,
-              click: () => (this.windowSource = source)
-            }
-          })
-        )
+      for (const tag of croppedTagImages) {
+        const detectedTag = await this.detectTagFromImage(tag)
+        this.detectedTags.push(detectedTag)
+      }
+      console.log(this.detectedTags)
 
-        videoOptionsMenu.popup()
-      },
-      screenshot() {
-        this.screenshotActive = true
-      },
-      async analyzeScreenshot(screenshot) {
-        this.screenshotActive = false
-        console.log(screenshot)
-        const imageSplit = screenshot.image.split(',')[1]
-
-        const prepTagsImagesPromises = []
-        TAGS.forEach(tag => {
-          prepTagsImagesPromises.push(
-            this.prepTag(
-              imageSplit,
-              screenshot.width,
-              screenshot.height,
-              tag.x,
-              tag.y
-            )
+      this.filterOperators(this.detectedTags)
+    },
+    async prepTag(image, imageWidth, imageHeight, cropX, cropY) {
+      return await Jimp.read(Buffer.from(image, 'base64'))
+        .then(readImage => {
+          return (
+            readImage
+              .crop(
+                cropX * imageWidth,
+                cropY * imageHeight,
+                TAGS_DIMENSIONS.WIDTH * imageWidth,
+                TAGS_DIMENSIONS.HEIGHT * imageHeight
+              )
+              .greyscale()
+              .autocrop()
+              .invert() // set greyscale
+              .contrast(1)
+              .posterize(2)
+              // .write(cropX + cropY + '.jpg')
+              .getBase64Async(Jimp.MIME_JPEG)
           )
         })
-
-        const croppedTagImages = await Promise.all(prepTagsImagesPromises)
-          .then(result => {
-            return result
-          })
-          .catch(e => {
-            console.log(e)
-          })
-
-        console.log(croppedTagImages)
-
-        for (const tag of croppedTagImages) {
-          const detectedTag = await this.detectTagFromImage(tag)
-          this.detectedTags.push(detectedTag)
-        }
-        console.log(this.detectedTags)
-      },
-      async prepTag(image, imageWidth, imageHeight, cropX, cropY) {
-        return await Jimp.read(Buffer.from(image, 'base64'))
-          .then(readImage => {
-            return (
-              readImage
-                .crop(
-                  cropX * imageWidth,
-                  cropY * imageHeight,
-                  TAGS_DIMENSIONS.WIDTH * imageWidth,
-                  TAGS_DIMENSIONS.HEIGHT * imageHeight
-                )
-                .greyscale()
-                .autocrop()
-                .invert() // set greyscale
-                .contrast(1)
-                .posterize(2)
-                // .write(cropX + cropY + '.jpg')
-                .getBase64Async(Jimp.MIME_JPEG)
-            )
-          })
-          .catch(err => {
-            console.error(err)
-          })
-      },
-      async detectTagFromImage(image) {
-        const worker = createWorker({
-          cachePath: path.join(__static, 'lang-data'),
-          logger: m => console.log(m)
+        .catch(err => {
+          console.error(err)
         })
+    },
+    async detectTagFromImage(image) {
+      const worker = createWorker({
+        cachePath: path.join(__static, 'lang-data'),
+        logger: m => console.log(m)
+      })
 
-        const base64string = image.split(',')[1]
+      const base64string = image.split(',')[1]
 
-        await worker.load()
-        console.log('FUCK')
-        await worker.loadLanguage('eng')
-        console.log('ASDASD')
-        await worker.initialize('eng')
+      await worker.load()
+      console.log('FUCK')
+      await worker.loadLanguage('eng')
+      console.log('ASDASD')
+      await worker.initialize('eng')
 
-        const job = await worker.recognize(Buffer.from(base64string, 'base64'))
-        await worker.terminate()
-        return RECRUITMENT_TAGS.find(tag =>
-          new RegExp('\\b' + tag + '\\b', 'i').test(job.data.text)
-        )
+      const job = await worker.recognize(Buffer.from(base64string, 'base64'))
+      await worker.terminate()
+      return RECRUITMENT_TAGS.find(tag =>
+        new RegExp('\\b' + tag + '\\b', 'i').test(job.data.text)
+      )
+    },
+    filterOperators(tags) {
+      const tagCombinations = this.getCombinations(tags)
+      const filteredTagOperators = tagCombinations
+        .map(combination => {
+          const matchedOperators = operators.filter(operator => {
+            if (
+              operator.tags.includes('top operator') &&
+              !combination.includes('top operator')
+            ) {
+              return false
+            }
+            return this.arrayContainsAnotherArray(combination, operator.tags)
+          })
+
+          console.log(matchedOperators)
+          const score =
+            matchedOperators.length > 0
+              ? matchedOperators.reduce(
+                  (acc, operator) => acc + operator.level,
+                  0
+                ) / matchedOperators.length
+              : 0
+          const minLevel =
+            score !== 0
+              ? Math.min(
+                  ...matchedOperators
+                    .map(op => op.level)
+                    .filter(level => level > 1)
+                )
+              : 0
+          return {
+            tags: combination,
+            minLevel,
+            score,
+            operators: matchedOperators
+          }
+        })
+        .filter(tags => tags.operators.length > 0)
+
+      const weightedOperatorTags = filteredTagOperators.sort((a, b) => {
+        if (a.minLevel > b.minLevel) return -1
+        if (a.minLevel < b.minLevel) return 1
+        if (a.score > b.score) return -1
+        if (b.score > a.score) return 1
+        if (a.tags.length > b.tags.length) return 1
+        if (a.tags.length < b.tags.length) return -1
+        if (a.operators.length > b.operators.length) return 1
+        if (a.operators.length < b.operators.length) return -1
+      })
+
+      console.log(weightedOperatorTags)
+      // Delete me later
+      const tableFormat = weightedOperatorTags.map(entry => {
+        return {
+          tags: entry.tags.toString(),
+          operators: entry.operators.map(op => op.name).toString(),
+          score: entry.score,
+          minLevel: entry.minLevel
+        }
+      })
+      console.table(tableFormat)
+    },
+    getCombinations(tags) {
+      // array to hold results
+      const result = []
+      // number of times we need to iterate to check over all possible combinations
+      const setCount = Math.pow(2, tags.length) - 1
+      // loop over iterations
+      for (let i = 0; i < setCount; i++) {
+        // array to hold this result
+        const innerList = []
+
+        for (let j = 0; j < tags.length; j++) {
+          // Each position in the initial list maps to a bit here
+          let position = 1 << j
+          // if the bits when bitwise AND are position then this is unique match
+          if ((i & position) == position) {
+            // insert into inner list
+            innerList.push(tags[j])
+          }
+        }
+        // insert into results if it isn't empty or a size of 4
+        if (innerList.length !== 0 && innerList.length !== 4) {
+          result.push(innerList)
+        }
       }
+
+      // purely for printing
+      for (let i = 0; i < result.length; i++) {
+        console.log(result[i])
+      }
+      return result
+    },
+    arrayContainsAnotherArray(needle, haystack) {
+      for (var i = 0; i < needle.length; i++) {
+        if (haystack.indexOf(needle[i]) === -1) return false
+      }
+      return true
     }
   }
+}
 </script>
 
 <style lang="scss" scoped>
-  body {
-    $background: #333;
-    background-color: $background;
-  }
+body {
+  $background: #333;
+  background-color: $background;
+}
 </style>
