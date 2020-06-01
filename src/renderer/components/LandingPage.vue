@@ -1,5 +1,10 @@
 <template>
   <div>
+    <screenshot-video
+      v-if="screenshotActive"
+      :windowSource="windowSource"
+      @screenshotComplete="analyzeScreenshot"
+    ></screenshot-video>
     <ark-card>
       <template v-slot:title>
         Controls
@@ -7,7 +12,9 @@
       <ark-button :modifiers="['outline']" @click.native="getVideoSources"
         >Select Arknights
       </ark-button>
-      <ark-button :modifiers="['action']">Analyze</ark-button>
+      <ark-button :modifiers="['action']" @click.native="screenshot"
+        >Analyze</ark-button
+      >
     </ark-card>
   </div>
 </template>
@@ -16,17 +23,20 @@
   import { desktopCapturer, remote } from 'electron'
   import ArkCard from './ArkCard'
   import ArkButton from './ArkButton'
+  import ScreenshotVideo from './ScreenshotVideo'
 
   const { Menu } = remote
 
   export default {
     components: {
       ArkCard,
-      ArkButton
+      ArkButton,
+      ScreenshotVideo
     },
     data() {
       return {
-        windowSource: {}
+        windowSource: {},
+        screenshotActive: false
       }
     },
     methods: {
@@ -48,6 +58,13 @@
         )
 
         videoOptionsMenu.popup()
+      },
+      screenshot() {
+        this.screenshotActive = true
+      },
+      analyzeScreenshot(screenshot) {
+        this.screenshotActive = false
+        console.log(screenshot)
       }
     }
   }
